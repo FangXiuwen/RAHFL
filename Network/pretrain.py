@@ -4,7 +4,7 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 import sys
 sys.path.append("..")
-from Dataset.utils import init_logs, get_dataloader, init_nets, mkdirs, partition_data
+from Dataset.utils import init_logs, get_pretrain_dataloader, init_nets, mkdirs, partition_data
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
@@ -117,7 +117,7 @@ if __name__ =='__main__':
 
     logger.info('Pretrain Participants Models')
     for index in range(N_Participants):
-        train_dl, _, train_ds, _= get_dataloader(dataset=Private_Dataset_Name,datadir=Private_Dataset_Dir,train_bs=TrainBatchSize,test_bs=TestBatchSize,
+        train_dl, _, train_ds, _= get_pretrain_dataloader(dataset=Private_Dataset_Name,datadir=Private_Dataset_Dir,train_bs=TrainBatchSize,test_bs=TestBatchSize,
                                                  dataidxs=net_dataidx_map[index],corrupt_rate=Private_Corrupt_Rate,augmix_module=AugMix_Module)
         network = net_list[index]
         network = nn.DataParallel(network, device_ids=device_ids).to(device)
@@ -131,7 +131,7 @@ if __name__ =='__main__':
     logger.info('Evaluate Models')
     test_accuracy_list = []
     for index in range(N_Participants):
-        _, test_dl, _, _= get_dataloader(dataset=Private_Dataset_Name,datadir=Private_Dataset_Dir,train_bs=TrainBatchSize,test_bs=TestBatchSize,
+        _, test_dl, _, _= get_pretrain_dataloader(dataset=Private_Dataset_Name,datadir=Private_Dataset_Dir,train_bs=TrainBatchSize,test_bs=TestBatchSize,
                                          test_corrupt_rate=Test_Corrupt_Rate)
         network = net_list[index]
         network = nn.DataParallel(network, device_ids=device_ids).to(device)

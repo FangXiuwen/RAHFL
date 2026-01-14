@@ -119,6 +119,112 @@ def generate_public_data_indexs(dataset,datadir,size):
     idxs = np.random.choice(all_idxs, size, replace=False) # 'replace=False' make sure that there is no repeat
     return idxs
 
+def get_pretrain_dataloader(dataset, datadir, train_bs, test_bs, dataidxs=None, corrupt_rate=0, test_corrupt_rate=0):
+    # For the train dataset:
+    if dataset == 'cifar10':
+        if corrupt_rate == 0:
+            normalize = transforms.Normalize(mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+                                             std=[x / 255.0 for x in [63.0, 62.1, 66.7]])
+        else:
+            normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
+                                             std=[0.2023, 0.1944, 0.2010])
+        
+        if corrupt_rate == 0:
+            transform_train = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Lambda(lambda x: F.pad(
+                    Variable(x.unsqueeze(0), requires_grad=False),
+                    (4, 4, 4, 4), mode='reflect').data.squeeze()),
+                transforms.ToPILImage(),
+                transforms.ColorJitter(),
+                transforms.RandomCrop(32),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                normalize
+            ])
+        else:
+            transform_train = transforms.Compose([
+                transforms.ToTensor(),
+                normalize
+            ])
+        
+        train_ds = CIFAR_C(datadir, dataidxs=dataidxs, train=True, transform=transform_train, corrupt_rate=corrupt_rate)
+        
+        if test_corrupt_rate == 0:
+            normalize_test = transforms.Normalize(mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+                                                  std=[x / 255.0 for x in [63.0, 62.1, 66.7]])
+        else:
+            normalize_test = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
+                                                  std=[0.2023, 0.1944, 0.2010])
+        
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            normalize_test
+        ])
+        test_ds = CIFAR_C(datadir, train=False, transform=transform_test, corrupt_rate=test_corrupt_rate)
+
+    if dataset == 'cifar100':
+        normalize = transforms.Normalize(mean=[0.5070751592371323, 0.48654887331495095, 0.4409178433670343],
+                                         std=[0.2673342858792401, 0.2564384629170883, 0.27615047132568404])
+        if corrupt_rate == 0:
+            transform_train = transforms.Compose([
+                transforms.ToPILImage(),
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomRotation(15),
+                transforms.ToTensor(),
+                normalize
+            ])
+        else:
+            transform_train = transforms.Compose([
+                transforms.ToTensor(),
+                normalize
+            ])
+        
+        train_ds = CIFAR_C(datadir, dataidxs=dataidxs, train=True, transform=transform_train, corrupt_rate=corrupt_rate)
+        
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            normalize
+        ])
+        test_ds = CIFAR_C(datadir, train=False, transform=transform_test, corrupt_rate=test_corrupt_rate)
+
+    if dataset == 'tinyimagenet':
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        
+        # 根据 corrupt_rate 判断是否使用数据增强
+        if corrupt_rate == 0:
+            # 干净数据：使用完整数据增强
+            transform_train = transforms.Compose([
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomRotation(15),
+                transforms.ToTensor(),
+                normalize
+            ])
+        else:
+            transform_train = transforms.Compose([
+                transforms.ToTensor(),
+                normalize
+            ])
+        if dataidxs is None:
+            train_ds = datasets.ImageFolder(datadir+'/train', transform=transform_train)
+        else:
+            train_ds = datasets.ImageFolder(datadir+'/train', transform=transform_train)
+            train_ds = torch.utils.data.Subset(train_ds, dataidxs)
+        
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            normalize
+        ])
+        test_ds = datasets.ImageFolder(datadir+'/test', transform=transform_test)
+
+    train_dl = data.DataLoader(dataset=train_ds, batch_size=train_bs, drop_last=True, shuffle=True)
+    test_dl = data.DataLoader(dataset=test_ds, batch_size=test_bs, drop_last=True, shuffle=False)
+
+    return train_dl, test_dl, train_ds, test_ds
+
+
 #-------Origin dataloader--------
 def get_dataloader(dataset, datadir, train_bs, test_bs, dataidxs=None, corrupt_rate=0, test_corrupt_rate=0, augmix_module=None):
 #-------Origin dataloader--------
